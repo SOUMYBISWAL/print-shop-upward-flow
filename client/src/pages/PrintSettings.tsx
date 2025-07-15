@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
@@ -12,12 +13,14 @@ import { type UploadedFile } from "@/lib/fileUpload";
 const PrintSettings = () => {
   const [location, navigate] = useLocation();
   const [paperType, setPaperType] = useState("standard");
-  const [printType, setPrintType] = useState("bw");
-  const [printingSide, setPrintingSide] = useState("single");
+  const [printType, setPrintType] = useState("color");
+  const [printingSide, setPrintingSide] = useState("double");
   const [pageRange, setPageRange] = useState("all");
+  const [customRange, setCustomRange] = useState("1-2,3-4,5");
   const [copies, setCopies] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(5);
+  const [totalFilesPages, setTotalFilesPages] = useState(5);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -26,13 +29,53 @@ const PrintSettings = () => {
     if (filesData) {
       const files = JSON.parse(filesData) as UploadedFile[];
       setUploadedFiles(files);
-      // For demo purposes, assume 1 page per file
-      setTotalPages(files.length);
+      
+      // Estimate pages based on file size (rough calculation)
+      const estimatedPages = files.reduce((total: number, file: any) => {
+        // Rough estimation: 1 page per 100KB for PDF files
+        const estimatedFilePages = Math.max(1, Math.ceil(file.size / 100000));
+        return total + estimatedFilePages;
+      }, 0);
+      
+      setTotalFilesPages(Math.max(5, estimatedPages)); // Minimum 5 pages as shown in screenshot
+      setTotalPages(Math.max(5, estimatedPages));
     } else {
       // Redirect to upload if no files
       navigate('/upload');
     }
   }, [navigate]);
+
+  // Calculate pages based on range selection
+  const calculateSelectedPages = () => {
+    if (pageRange === "all") {
+      return totalFilesPages;
+    } else {
+      // Parse custom range like "1-2,3-4,5"
+      const ranges = customRange.split(',');
+      let selectedPages = 0;
+      
+      ranges.forEach(range => {
+        const trimmed = range.trim();
+        if (trimmed.includes('-')) {
+          const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
+          if (!isNaN(start) && !isNaN(end)) {
+            selectedPages += Math.max(0, end - start + 1);
+          }
+        } else {
+          const pageNum = parseInt(trimmed);
+          if (!isNaN(pageNum)) {
+            selectedPages += 1;
+          }
+        }
+      });
+      
+      return Math.min(selectedPages, totalFilesPages);
+    }
+  };
+
+  useEffect(() => {
+    setTotalPages(calculateSelectedPages());
+  }, [pageRange, customRange, totalFilesPages]);
 
   const calculatePrice = () => {
     let basePrice = printType === "bw" ? 1.5 : 4;
@@ -48,9 +91,9 @@ const PrintSettings = () => {
           <p className="text-muted-foreground">Customize your printing preferences</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Print Options */}
-          <div className="lg:col-span-2">
+          <div>
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-6">Print Options</h2>
               
@@ -115,13 +158,35 @@ const PrintSettings = () => {
                   <RadioGroup value={pageRange} onValueChange={setPageRange} className="mt-2">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="all" id="all" />
-                      <Label htmlFor="all">All Pages (1 pages)</Label>
+                      <Label htmlFor="all">All Pages ({totalFilesPages} pages)</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="custom" id="custom" />
                       <Label htmlFor="custom">Custom Range</Label>
                     </div>
                   </RadioGroup>
+                  
+                  {pageRange === "custom" && (
+                    <div className="mt-3 space-y-2">
+                      <Input
+                        type="text"
+                        value={customRange}
+                        onChange={(e) => setCustomRange(e.target.value)}
+                        placeholder="1-2,3-4,5"
+                        className="w-full"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Enter page numbers and/or range with hyphens
+                      </p>
+                      <p className="text-sm font-medium">{totalPages} pages selected</p>
+                      <p className="text-sm text-blue-600">
+                        {printingSide === "double" ? 
+                          `${Math.ceil(totalPages / 2)} physical sheets needed (${totalPages} page ${printingSide === "single" ? "single" : "double"}-sided)` :
+                          `${totalPages} physical sheets needed (${totalPages} page single-sided)`
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Number of Copies */}
@@ -151,9 +216,11 @@ const PrintSettings = () => {
               <div className="mt-8 p-4 bg-accent/50 rounded-lg">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium">Estimated Price:</span>
-                  <span className="text-2xl font-bold">₹{calculatePrice().toFixed(2)} Rs</span>
+                  <span className="text-2xl font-bold">₹{calculatePrice().toFixed(2)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Final price based on 1 page</p>
+                <p className="text-sm text-muted-foreground">
+                  Final price based on {totalPages} pages × {copies} copies
+                </p>
               </div>
 
               <Button 
