@@ -4,10 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const CheckoutPage = () => {
-  const navigate = useNavigate();
+  const [location, navigate] = useLocation();
   const [formData, setFormData] = useState({
     fullName: "",
     mobile: "",

@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const PrintSettings = () => {
-  const navigate = useNavigate();
+  const [location, navigate] = useLocation();
   const [paperType, setPaperType] = useState("standard");
   const [printType, setPrintType] = useState("bw");
   const [printingSide, setPrintingSide] = useState("single");

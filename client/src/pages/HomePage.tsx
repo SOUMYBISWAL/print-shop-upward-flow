@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Upload, Printer, FileText, Truck, Star, Clock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const HomePage = () => {
-  const navigate = useNavigate();
+  const [location, navigate] = useLocation();
 
   const features = [
     {

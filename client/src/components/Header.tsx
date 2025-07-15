@@ -1,10 +1,10 @@
 import { Search, Upload, ShoppingCart, User, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const Header = () => {
-  const navigate = useNavigate();
+  const [location, navigate] = useLocation();
 
   return (
     <header className="border-b bg-background">
