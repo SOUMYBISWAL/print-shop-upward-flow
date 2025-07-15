@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Router, Route, Switch } from "wouter";
 import { queryClient } from "./lib/queryClient";
+import { configureAmplify } from "./lib/amplify";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import UploadPage from "./pages/UploadPage";
@@ -13,6 +14,9 @@ import CheckoutPage from "./pages/CheckoutPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
+
+// Configure Amplify
+configureAmplify();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

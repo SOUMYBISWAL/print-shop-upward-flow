@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -6,6 +6,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { type UploadedFile } from "@/lib/fileUpload";
 
 const PrintSettings = () => {
   const [location, navigate] = useLocation();
@@ -14,11 +16,28 @@ const PrintSettings = () => {
   const [printingSide, setPrintingSide] = useState("single");
   const [pageRange, setPageRange] = useState("all");
   const [copies, setCopies] = useState(1);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Get uploaded files from localStorage
+    const filesData = localStorage.getItem('uploadedFiles');
+    if (filesData) {
+      const files = JSON.parse(filesData) as UploadedFile[];
+      setUploadedFiles(files);
+      // For demo purposes, assume 1 page per file
+      setTotalPages(files.length);
+    } else {
+      // Redirect to upload if no files
+      navigate('/upload');
+    }
+  }, [navigate]);
 
   const calculatePrice = () => {
     let basePrice = printType === "bw" ? 1.5 : 4;
     if (printingSide === "double") basePrice += 2.5;
-    return basePrice * copies;
+    return basePrice * copies * totalPages;
   };
 
   return (
@@ -139,7 +158,21 @@ const PrintSettings = () => {
 
               <Button 
                 className="w-full mt-6"
-                onClick={() => navigate('/cart')}
+                onClick={() => {
+                  // Store print settings for checkout
+                  const printSettings = {
+                    paperType,
+                    printType,
+                    printingSide,
+                    pageRange,
+                    copies,
+                    totalPages,
+                    price: calculatePrice(),
+                    files: uploadedFiles
+                  };
+                  localStorage.setItem('printSettings', JSON.stringify(printSettings));
+                  navigate('/cart');
+                }}
               >
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Add to Cart

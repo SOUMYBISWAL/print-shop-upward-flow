@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { fileUploadService, type UploadedFile } from "@/lib/fileUpload";
 
 const UploadPage = () => {
   const [location, navigate] = useLocation();
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -39,6 +44,41 @@ const UploadPage = () => {
 
   const removeFile = (index: number) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async () => {
+    if (files.length === 0) return;
+    
+    setUploading(true);
+    try {
+      // Generate a temporary order ID for file organization
+      const tempOrderId = `temp-${Date.now()}`;
+      
+      const uploadPromises = files.map(file => 
+        fileUploadService.uploadFile(file, tempOrderId)
+      );
+      
+      const results = await Promise.all(uploadPromises);
+      setUploadedFiles(results);
+      
+      // Store uploaded files in localStorage for use in PrintSettings
+      localStorage.setItem('uploadedFiles', JSON.stringify(results));
+      
+      toast({
+        title: "Files uploaded successfully",
+        description: `${results.length} file(s) uploaded to cloud storage`,
+      });
+      
+      navigate('/print-settings');
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload files. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -115,14 +155,22 @@ const UploadPage = () => {
             <Button 
               variant="outline"
               onClick={() => navigate('/')}
+              disabled={uploading}
             >
               Cancel
             </Button>
             <Button
-              disabled={files.length === 0}
-              onClick={() => navigate('/print-settings')}
+              disabled={files.length === 0 || uploading}
+              onClick={uploadFiles}
             >
-              Continue to Print Settings
+              {uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload & Continue"
+              )}
             </Button>
           </div>
         </Card>

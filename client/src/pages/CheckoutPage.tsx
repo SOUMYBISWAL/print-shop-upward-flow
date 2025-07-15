@@ -1,10 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { type UploadedFile } from "@/lib/fileUpload";
+
+interface PrintSettings {
+  paperType: string;
+  printType: string;
+  printingSide: string;
+  pageRange: string;
+  copies: number;
+  totalPages: number;
+  price: number;
+  files: UploadedFile[];
+}
 
 const CheckoutPage = () => {
   const [location, navigate] = useLocation();
@@ -13,17 +28,119 @@ const CheckoutPage = () => {
     mobile: "",
     deliveryLocation: ""
   });
+  const [printSettings, setPrintSettings] = useState<PrintSettings | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const orderSummary = {
-    subtotal: 1.50,
-    deliveryFee: 20.00,
-    total: 21.50
+  const deliveryFee = 20.00;
+
+  useEffect(() => {
+    // Get print settings from localStorage
+    const settingsData = localStorage.getItem('printSettings');
+    if (settingsData) {
+      setPrintSettings(JSON.parse(settingsData));
+    } else {
+      navigate('/print-settings');
+    }
+  }, [navigate]);
+
+  const createOrderMutation = useMutation({
+    mutationFn: async (orderData: any) => {
+      return apiRequest('/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(orderData),
+      });
+    },
+    onSuccess: (order) => {
+      // Create order files
+      if (printSettings) {
+        printSettings.files.forEach(file => {
+          apiRequest('/api/order-files', {
+            method: 'POST',
+            body: JSON.stringify({
+              orderId: order.id,
+              fileName: file.name,
+              fileSize: file.size.toString(),
+              fileKey: file.key,
+              fileType: file.type,
+            }),
+          });
+        });
+      }
+      
+      // Clear localStorage
+      localStorage.removeItem('uploadedFiles');
+      localStorage.removeItem('printSettings');
+      
+      toast({
+        title: "Order placed successfully!",
+        description: `Order ${order.orderId} has been created.`,
+      });
+      
+      navigate('/admin');
+    },
+    onError: (error) => {
+      toast({
+        title: "Order failed",
+        description: "Failed to create order. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!printSettings) {
+      toast({
+        title: "Missing print settings",
+        description: "Please go back and configure your print settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.fullName || !formData.mobile || !formData.deliveryLocation) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const orderData = {
+      orderId: `ORD-${Date.now()}`,
+      customerName: formData.fullName,
+      customerEmail: `${formData.mobile}@example.com`, // Placeholder email
+      customerPhone: formData.mobile,
+      deliveryAddress: formData.deliveryLocation,
+      status: "pending",
+      totalAmount: (printSettings.price + deliveryFee).toFixed(2),
+      totalPages: printSettings.totalPages,
+      printOptions: {
+        paperType: printSettings.paperType,
+        printType: printSettings.printType,
+        printingSide: printSettings.printingSide,
+        pageRange: printSettings.pageRange,
+        copies: printSettings.copies,
+      },
+    };
+
+    createOrderMutation.mutate(orderData);
+    setIsSubmitting(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Process order
-    navigate('/admin');
+  if (!printSettings) {
+    return <div>Loading...</div>;
+  }
+
+  const orderSummary = {
+    subtotal: printSettings.price,
+    deliveryFee: deliveryFee,
+    total: printSettings.price + deliveryFee
   };
 
   return (

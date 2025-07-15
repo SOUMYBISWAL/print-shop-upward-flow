@@ -1,81 +1,57 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Download, Check, Truck, Package } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { type Order } from "@shared/schema";
 
 const AdminDashboard = () => {
-  const [orders, setOrders] = useState([
-    {
-      id: "ORD-001",
-      customer: {
-        name: "Jane Smith",
-        email: "jane@example.com",
-        phone: "+1 (555) 987-6543"
-      },
-      files: [
-        { name: "Presentation.pdf", size: "2.5 MB" },
-        { name: "Handouts.pdf", size: "1.8 MB" }
-      ],
-      printOptions: {
-        type: "Color",
-        size: "A4",
-        sides: "double",
-        binding: "spiral"
-      },
-      deliveryAddress: "456 Oak Ave, Los Angeles, CA 90210",
-      status: "Printing",
-      amount: 7.00,
-      pages: 25
-    },
-    {
-      id: "ORD-002", 
-      customer: {
-        name: "Bob Johnson",
-        email: "bob@example.com",
-        phone: "+1 (555) 456-7890"
-      },
-      files: [
-        { name: "Document.pdf", size: "1.2 MB" }
-      ],
-      printOptions: {
-        type: "Black & White",
-        size: "Letter",
-        sides: "single",
-        binding: "none"
-      },
-      deliveryAddress: "789 Pine Rd, Chicago, IL 60601",
-      status: "Pending",
-      amount: 7.00,
-      pages: 8
-    }
-  ]);
+  const queryClient = useQueryClient();
+  
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['/api/orders'],
+    queryFn: () => apiRequest('/api/orders'),
+  });
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    setOrders(prev => 
-      prev.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ orderId, status }: { orderId: number; status: string }) => {
+      return apiRequest(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+    },
+  });
+
+  const updateOrderStatus = (orderId: number, newStatus: string) => {
+    updateStatusMutation.mutate({ orderId, status: newStatus });
   };
+
+  if (isLoading) {
+    return <div>Loading orders...</div>;
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Pending": return "bg-yellow-500";
-      case "Printing": return "bg-blue-500";
-      case "Shipped": return "bg-purple-500";
-      case "Delivered": return "bg-green-500";
+      case "pending": return "bg-yellow-500";
+      case "printing": return "bg-blue-500";
+      case "shipped": return "bg-purple-500";
+      case "delivered": return "bg-green-500";
       default: return "bg-gray-500";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "Pending": return Package;
-      case "Printing": return FileText;
-      case "Shipped": return Truck;
-      case "Delivered": return Check;
+      case "pending": return Package;
+      case "printing": return FileText;
+      case "shipped": return Truck;
+      case "delivered": return Check;
       default: return Package;
     }
   };
@@ -105,7 +81,7 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">
-                  {orders.filter(o => o.status === "Pending").length}
+                  {orders.filter(o => o.status === "pending").length}
                 </p>
               </div>
               <FileText className="h-8 w-8 text-yellow-500" />
@@ -117,7 +93,7 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Printing</p>
                 <p className="text-2xl font-bold">
-                  {orders.filter(o => o.status === "Printing").length}
+                  {orders.filter(o => o.status === "printing").length}
                 </p>
               </div>
               <FileText className="h-8 w-8 text-blue-500" />
@@ -148,41 +124,25 @@ const AdminDashboard = () => {
                   {/* Order Info */}
                   <div>
                     <div className="flex items-center space-x-2 mb-2">
-                      <h3 className="font-semibold">{order.id}</h3>
+                      <h3 className="font-semibold">{order.orderId}</h3>
                       <Badge className={`${getStatusColor(order.status)} text-white`}>
                         <StatusIcon className="h-3 w-3 mr-1" />
                         {order.status}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">{order.customer.name}</p>
-                    <p className="text-sm text-muted-foreground mb-1">{order.customer.email}</p>
-                    <p className="text-sm text-muted-foreground">{order.customer.phone}</p>
-                  </div>
-
-                  {/* Files */}
-                  <div>
-                    <h4 className="font-medium mb-2">Files</h4>
-                    <div className="space-y-1">
-                      {order.files.map((file, index) => (
-                        <div key={index} className="flex items-center text-sm">
-                          <FileText className="h-4 w-4 mr-2 text-primary" />
-                          <span className="flex-1">{file.name}</span>
-                          <Button variant="ghost" size="sm">
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-sm text-muted-foreground mb-1">{order.customerName}</p>
+                    <p className="text-sm text-muted-foreground mb-1">{order.customerEmail}</p>
+                    <p className="text-sm text-muted-foreground">{order.customerPhone}</p>
                   </div>
 
                   {/* Print Options & Address */}
                   <div>
                     <h4 className="font-medium mb-2">Print Options</h4>
                     <div className="text-sm space-y-1">
-                      <p>Type: {order.printOptions.type}</p>
-                      <p>Size: {order.printOptions.size}</p>
-                      <p>Sides: {order.printOptions.sides}</p>
-                      <p>Binding: {order.printOptions.binding}</p>
+                      <p>Type: {order.printOptions.printType}</p>
+                      <p>Paper: {order.printOptions.paperType}</p>
+                      <p>Sides: {order.printOptions.printingSide}</p>
+                      <p>Copies: {order.printOptions.copies}</p>
                     </div>
                     <h4 className="font-medium mt-4 mb-2">Delivery Address</h4>
                     <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p>
@@ -191,8 +151,8 @@ const AdminDashboard = () => {
                   {/* Actions */}
                   <div className="flex flex-col space-y-3">
                     <div className="text-right">
-                      <p className="text-lg font-bold">₹{order.amount.toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">{order.pages} pages</p>
+                      <p className="text-lg font-bold">₹{parseFloat(order.totalAmount).toFixed(2)}</p>
+                      <p className="text-sm text-muted-foreground">{order.totalPages} pages</p>
                     </div>
                     
                     <Select 
@@ -203,10 +163,10 @@ const AdminDashboard = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Printing">Printing</SelectItem>
-                        <SelectItem value="Shipped">Shipped</SelectItem>
-                        <SelectItem value="Delivered">Delivered</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="printing">Printing</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -214,11 +174,11 @@ const AdminDashboard = () => {
                       <Button variant="outline" size="sm" className="flex-1">
                         Print Label
                       </Button>
-                      {order.status === "Pending" ? (
+                      {order.status === "pending" ? (
                         <Button 
                           size="sm" 
                           className="flex-1"
-                          onClick={() => updateOrderStatus(order.id, "Printing")}
+                          onClick={() => updateOrderStatus(order.id, "printing")}
                         >
                           Start Printing
                         </Button>
@@ -226,7 +186,7 @@ const AdminDashboard = () => {
                         <Button 
                           size="sm" 
                           className="flex-1"
-                          onClick={() => updateOrderStatus(order.id, "Delivered")}
+                          onClick={() => updateOrderStatus(order.id, "delivered")}
                         >
                           Mark Complete
                         </Button>
