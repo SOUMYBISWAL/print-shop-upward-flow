@@ -4,6 +4,14 @@
 
 This is a full-stack web application for a print shop service called "PrintLite". The application allows users to upload documents, customize print settings, place orders, and track their printing jobs. It features a React frontend with a Node.js/Express backend, using PostgreSQL for data storage.
 
+**Migration Status**: Successfully migrated from Replit Agent to standard Replit environment (July 15, 2025)
+
+## Recent Changes
+- ✓ Added deployment configuration files for AWS Amplify (`amplify.yml`)
+- ✓ Created SPA routing support (`_redirects`, `.htaccess`)
+- ✓ Added comprehensive deployment documentation (`DEPLOYMENT.md`)
+- ✓ Verified project runs correctly in Replit environment
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
